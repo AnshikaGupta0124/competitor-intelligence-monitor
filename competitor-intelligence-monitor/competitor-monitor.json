@@ -1,0 +1,250 @@
+{
+  "name": "Competitor Intelligence",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "2fc37d53-e22d-401f-8212-ad8ef0f3644f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"competitors\": [\n    {\"competitor\": \"Webflow\", \"pageType\": \"Pricing\", \"url\": \"https://webflow.com/pricing\"},\n    {\"competitor\": \"Maze\", \"pageType\": \"Pricing\", \"url\": \"https://maze.co/pricing\"},\n    {\"competitor\": \"Framer\", \"pageType\": \"Pricing\", \"url\": \"https://framer.com\"},\n    {\"competitor\": \"Penpot\", \"pageType\": \"Pricing\", \"url\": \"https://penpot.app\"}\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [208, 0],
+      "id": "09c3edc4-ae5c-4ad1-b93e-293d63e3f5e3",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "competitors",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [416, 0],
+      "id": "be956d5d-2906-4661-8ae4-64351ef97835",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [624, 0],
+      "id": "4409573a-2953-4409-b8fd-1a5e2220c0c4",
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const splitItems = $('Split Out').all();\n\nreturn items.map((item, index) => {\n    let html = item.json.data || item.json.body || '';\n    \n    if (typeof html !== 'string') {\n        html = JSON.stringify(html);\n    }\n\n    let cleaned = html\n        .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n        .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n        .replace(/<head[\\s\\S]*?<\\/head>/gi, '')\n        .replace(/<!--[\\s\\S]*?-->/gi, '')\n        .replace(/<[^>]+>/g, '\\n')\n        .replace(/&nbsp;/g, ' ')\n        .replace(/&amp;/g, '&')\n        .replace(/&lt;/g, '<')\n        .replace(/&gt;/g, '>')\n        .replace(/\\s+/g, ' ')\n        .trim();\n\n    const lines = cleaned.split('\\n').filter(line => {\n        const trimmed = line.trim();\n        return trimmed.length > 15 &&\n               !trimmed.match(/^(javascript|css|data-|scroll|nav|header|footer|cookie)/i) &&\n               !trimmed.match(/^\\d+$/);\n    });\n\n    cleaned = lines.join('\\n').substring(0, 15000);\n\n    const meta = splitItems[index] ? splitItems[index].json : {};\n\n    return {\n        json: {\n            competitor: meta.competitor || 'Unknown',\n            pageType:   meta.pageType || 'Pricing',\n            url:        meta.url || '',\n            scrapedAt:  new Date().toISOString(),\n            cleanedContent: cleaned\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [832, 0],
+      "id": "d47447ce-9621-4de3-ae36-2ad22ecbee38",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Competitor Intelligence"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Snapshots"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "competitor": "={{ $json.competitor }}",
+            "pageType": "={{ $json.pageType }}",
+            "url": "={{ $json.url }}",
+            "scrapedAt": "={{ $json.scrapedAt }}",
+            "cleanedContent": "={{ $json.cleanedContent }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {"id": "competitor", "displayName": "competitor", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "readOnly": false, "removed": false},
+            {"id": "pageType", "displayName": "pageType", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "readOnly": false, "removed": false},
+            {"id": "url", "displayName": "url", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "readOnly": false, "removed": false},
+            {"id": "scrapedAt", "displayName": "scrapedAt", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "readOnly": false, "removed": false},
+            {"id": "cleanedContent", "displayName": "cleanedContent", "required": false, "defaultMatch": false, "canBeUsedToMatch": true, "display": true, "type": "string", "readOnly": false, "removed": false}
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [1040, 0],
+      "id": "4b5b1840-107f-48f5-afd6-c6e90f081b2b",
+      "name": "Create a record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "list",
+          "cachedResultName": "Competitor Intelligence"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "Snapshots"
+        },
+        "filterByFormula": "=FIND(\"{{ new Date(Date.now() - 86400000).toISOString().split('T')[0] }}\", {scrapedAt})",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [1248, 0],
+      "id": "c4276170-f91e-4ae0-a143-3108b7bca2e6",
+      "name": "Search records",
+      "executeOnce": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.groqBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1680, 0],
+      "id": "91ac89f2-91fe-4ee2-bf98-b7c6575ad62a",
+      "name": "HTTP Request1",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const todayItems = $('Code in JavaScript').all();\n\nconst todayMap = {};\ntodayItems.forEach(item => {\n    const name = item.json.competitor || 'Unknown';\n    todayMap[name] = item.json.cleanedContent || '';\n});\n\nreturn items.map(item => {\n    const fields = item.json.fields || item.json || {};\n    const competitor = fields.competitor || 'Unknown';\n    const yesterdayContent = (fields.cleanedContent || 'No previous data').substring(0, 1500);\n    const todayContent = (todayMap[competitor] || 'No data for today').substring(0, 1500);\n\n    const body = JSON.stringify({\n        model: \"llama-3.3-70b-versatile\",\n        messages: [{\n            role: \"user\",\n            content: `You are a competitor intelligence analyst for a Figma-like design tool company.\\n\\nCOMPETITOR: ${competitor}\\n\\nYESTERDAY'S CONTENT:\\n${yesterdayContent}\\n\\nTODAY'S CONTENT:\\n${todayContent}\\n\\nWhat CHANGED between yesterday and today?\\n1) New or changed pricing\\n2) New features announced\\n3) Any other changes\\n\\nIf nothing changed say \"No changes detected\". Be concise with bullet points.`\n        }],\n        max_tokens: 500\n    });\n\n    return {\n        json: {\n            competitor: competitor,\n            groqBody: body\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1456, 0],
+      "id": "92b443e9-b908-4a43-8e98-62a584a3b608",
+      "name": "Code in JavaScript1",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqPrepItems = $('Code in JavaScript1').all();\n\nconst analyses = items.map((item, index) => {\n    const competitor = groqPrepItems[index]?.json?.competitor || 'Unknown';\n    let content = item.json.choices?.[0]?.message?.content || 'No analysis available';\n    content = content\n        .replace(/\\*\\*/g, '')\n        .replace(/\\*/g, '•')\n        .replace(/#{1,6} /g, '')\n        .trim();\n    return `🏢 ${competitor}\\n${'─'.repeat(40)}\\n${content}`;\n});\n\nconst emailBody = `COMPETITOR INTELLIGENCE DIGEST\\n${new Date().toDateString()}\\n${'═'.repeat(50)}\\n\\n${analyses.join('\\n\\n')}\\n\\n${'═'.repeat(50)}\\nPowered by your Competitor Intelligence Monitor`;\n\nreturn [{\n    json: {\n        subject: `Competitor Intelligence Digest - ${new Date().toDateString()}`,\n        body: emailBody\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1888, 0],
+      "id": "c7510a68-f3b0-4ba9-b067-bd453bd6af98",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [2096, 0],
+      "id": "845bed0f-f759-47d4-a1d3-379c32473a29",
+      "name": "Send a message",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {"main": [[{"node": "Edit Fields", "type": "main", "index": 0}]]},
+    "Edit Fields": {"main": [[{"node": "Split Out", "type": "main", "index": 0}]]},
+    "Split Out": {"main": [[{"node": "HTTP Request", "type": "main", "index": 0}]]},
+    "HTTP Request": {"main": [[{"node": "Code in JavaScript", "type": "main", "index": 0}]]},
+    "Code in JavaScript": {"main": [[{"node": "Create a record", "type": "main", "index": 0}]]},
+    "Create a record": {"main": [[{"node": "Search records", "type": "main", "index": 0}]]},
+    "Search records": {"main": [[{"node": "Code in JavaScript1", "type": "main", "index": 0}]]},
+    "Code in JavaScript1": {"main": [[{"node": "HTTP Request1", "type": "main", "index": 0}]]},
+    "HTTP Request1": {"main": [[{"node": "Code in JavaScript2", "type": "main", "index": 0}]]},
+    "Code in JavaScript2": {"main": [[{"node": "Send a message", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
